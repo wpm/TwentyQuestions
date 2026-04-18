@@ -162,15 +162,14 @@ pub fn Toolbar(
                     type="text"
                     spellcheck="false"
                     autocomplete="off"
-                    class="border rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 w-44"
-                    class=(
-                        "border-red-500 dark:border-red-500",
-                        move || !is_valid_nats_subject(&topic.get()),
-                    )
-                    class=(
-                        "border-gray-300 dark:border-gray-600",
-                        move || is_valid_nats_subject(&topic.get()),
-                    )
+                    class=move || {
+                        let border = if is_valid_nats_subject(&topic.get()) {
+                            "border-gray-300 dark:border-gray-600"
+                        } else {
+                            "border-red-500"
+                        };
+                        format!("border {border} rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 w-44")
+                    }
                     prop:value=move || topic.get()
                     on:input=move |ev| {
                         let val = event_target_value(&ev);
