@@ -1,21 +1,20 @@
 use leptos::prelude::*;
 use leptos::task::spawn_local;
 
-use crate::store::{load_store, store_get_string, store_set_string};
+use crate::store::{load_store, store_set_string, STORE_PATH};
 
 pub const OBJECT_SUGGESTIONS: &[&str] = &["elephant", "wine glass", "smile", "umbrella", "doctor"];
 
-const STORE_PATH: &str = "settings.json";
-const THEME_KEY: &str = "theme";
+pub const THEME_KEY: &str = "theme";
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Theme {
     Light,
     Dark,
 }
 
 impl Theme {
-    fn from_str(s: &str) -> Option<Self> {
+    pub fn from_str(s: &str) -> Option<Self> {
         match s {
             "light" => Some(Theme::Light),
             "dark" => Some(Theme::Dark),
@@ -23,35 +22,55 @@ impl Theme {
         }
     }
 
-    fn as_str(self) -> &'static str {
+    pub fn as_str(self) -> &'static str {
         match self {
             Theme::Light => "light",
             Theme::Dark => "dark",
         }
     }
-}
 
-fn apply_theme(theme: Theme) {
-    let doc = web_sys::window()
-        .and_then(|w| w.document())
-        .and_then(|d| d.document_element());
-    if let Some(el) = doc {
-        match theme {
-            Theme::Dark => {
-                let _ = el.class_list().add_1("dark");
-            }
-            Theme::Light => {
-                let _ = el.class_list().remove_1("dark");
+    pub fn apply(theme: Theme) {
+        let doc = web_sys::window()
+            .and_then(|w| w.document())
+            .and_then(|d| d.document_element());
+        if let Some(el) = doc {
+            match theme {
+                Theme::Dark => {
+                    let _ = el.class_list().add_1("dark");
+                }
+                Theme::Light => {
+                    let _ = el.class_list().remove_1("dark");
+                }
             }
         }
     }
+
+    pub fn from_system() -> Self {
+        let prefers_dark = web_sys::window()
+            .and_then(|w| w.match_media("(prefers-color-scheme: dark)").ok().flatten())
+            .map(|mq| mq.matches())
+            .unwrap_or(false);
+        if prefers_dark { Theme::Dark } else { Theme::Light }
+    }
 }
 
-fn system_prefers_dark() -> bool {
-    web_sys::window()
-        .and_then(|w| w.match_media("(prefers-color-scheme: dark)").ok().flatten())
-        .map(|mq| mq.matches())
-        .unwrap_or(false)
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn theme_from_str_rejects_unknown() {
+        assert_eq!(Theme::from_str(""), None);
+        assert_eq!(Theme::from_str("Light"), None);
+        assert_eq!(Theme::from_str("Dark"), None);
+        assert_eq!(Theme::from_str("auto"), None);
+    }
+
+    #[test]
+    fn theme_round_trips_through_str() {
+        assert_eq!(Theme::from_str(Theme::Light.as_str()), Some(Theme::Light));
+        assert_eq!(Theme::from_str(Theme::Dark.as_str()), Some(Theme::Dark));
+    }
 }
 
 #[component]
@@ -59,34 +78,15 @@ pub fn Toolbar(
     object: RwSignal<String>,
     players: RwSignal<u32>,
     theme: RwSignal<Theme>,
+    on_settings: Callback<()>,
 ) -> impl IntoView {
-    // Load persisted theme on mount, falling back to system preference
-    spawn_local(async move {
-        if let Some(rid) = load_store(STORE_PATH).await {
-            if let Some(saved) = store_get_string(rid, THEME_KEY).await {
-                if let Some(t) = Theme::from_str(&saved) {
-                    theme.set(t);
-                    apply_theme(t);
-                    return;
-                }
-            }
-        }
-        let t = if system_prefers_dark() {
-            Theme::Dark
-        } else {
-            Theme::Light
-        };
-        theme.set(t);
-        apply_theme(t);
-    });
-
     let toggle_theme = move |_: web_sys::MouseEvent| {
         let next = match theme.get() {
             Theme::Light => Theme::Dark,
             Theme::Dark => Theme::Light,
         };
         theme.set(next);
-        apply_theme(next);
+        Theme::apply(next);
         spawn_local(async move {
             if let Some(rid) = load_store(STORE_PATH).await {
                 store_set_string(rid, THEME_KEY, next.as_str()).await;
@@ -145,7 +145,17 @@ pub fn Toolbar(
                 "Stop"
             </button>
 
-            // Theme toggle — sits in the title bar row, right of the buttons
+            <button
+                class="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300"
+                on:click=move |_| on_settings.run(())
+                aria-label="Open settings"
+            >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+            </button>
+
             <button
                 class="p-1.5 rounded hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300"
                 on:click=toggle_theme
