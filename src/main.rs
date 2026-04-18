@@ -1,4 +1,7 @@
 mod app;
+mod chat_panel;
+mod store;
+mod toolbar;
 
 use app::*;
 use leptos::prelude::*;
