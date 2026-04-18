@@ -1,5 +1,6 @@
 mod app;
 mod chat_panel;
+mod nats;
 mod settings_modal;
 mod store;
 mod toolbar;

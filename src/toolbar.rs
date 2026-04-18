@@ -1,6 +1,7 @@
 use leptos::prelude::*;
 use leptos::task::spawn_local;
 
+use crate::nats::is_valid_nats_subject;
 use crate::store::{load_store, store_set_string, STORE_PATH};
 
 pub const OBJECT_SUGGESTIONS: &[&str] = &["elephant", "wine glass", "smile", "umbrella", "doctor"];
@@ -83,6 +84,8 @@ pub fn Toolbar(
     players: RwSignal<u32>,
     theme: RwSignal<Theme>,
     on_settings: Callback<()>,
+    topic: RwSignal<String>,
+    on_topic_change: Callback<String>,
 ) -> impl IntoView {
     let toggle_theme = move |_: web_sys::MouseEvent| {
         let next = match theme.get() {
@@ -135,6 +138,34 @@ pub fn Toolbar(
                         </option>
                     }).collect_view()}
                 </select>
+            </div>
+
+            // Topic input
+            <div class="flex items-center gap-2">
+                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">"Topic"</label>
+                <input
+                    type="text"
+                    spellcheck="false"
+                    autocomplete="off"
+                    class="border rounded px-2 py-1 text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 w-44"
+                    class=(
+                        "border-red-500 dark:border-red-500",
+                        move || !is_valid_nats_subject(&topic.get()),
+                    )
+                    class=(
+                        "border-gray-300 dark:border-gray-600",
+                        move || is_valid_nats_subject(&topic.get()),
+                    )
+                    prop:value=move || topic.get()
+                    on:input=move |ev| {
+                        let val = event_target_value(&ev);
+                        if is_valid_nats_subject(&val) {
+                            on_topic_change.run(val);
+                        } else {
+                            topic.set(val);
+                        }
+                    }
+                />
             </div>
 
             <div class="flex-1" />

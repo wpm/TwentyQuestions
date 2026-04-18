@@ -4,10 +4,11 @@ use wasm_bindgen::closure::Closure;
 use wasm_bindgen::JsCast;
 
 use crate::chat_panel::ChatPanel;
+use crate::nats::{DEFAULT_TOPIC, TOPIC_KEY};
 use crate::settings_modal::{
     SettingsModal, DEFAULT_MODEL, DEFAULT_NATS_URL, MODEL_KEY, NATS_URL_KEY,
 };
-use crate::store::{load_store, store_get_string, STORE_PATH};
+use crate::store::{load_store, store_get_string, store_set_string, STORE_PATH};
 use crate::toolbar::{Theme, Toolbar, THEME_KEY};
 
 pub const OPEN_SETTINGS_EVENT: &str = "open-settings";
@@ -20,6 +21,7 @@ pub fn App() -> impl IntoView {
     let show_settings = RwSignal::new(false);
     let nats_url = RwSignal::new(DEFAULT_NATS_URL.to_string());
     let model = RwSignal::new(DEFAULT_MODEL.to_string());
+    let topic = RwSignal::new(DEFAULT_TOPIC.to_string());
 
     // Load all persisted settings in a single store session
     spawn_local(async move {
@@ -39,6 +41,9 @@ pub fn App() -> impl IntoView {
             }
             if let Some(m) = store_get_string(rid, MODEL_KEY).await {
                 model.set(m);
+            }
+            if let Some(t) = store_get_string(rid, TOPIC_KEY).await {
+                topic.set(t);
             }
         } else {
             let t = Theme::from_system();
@@ -73,9 +78,18 @@ pub fn App() -> impl IntoView {
 
     let on_settings = Callback::new(move |()| show_settings.set(true));
 
+    let on_topic_change = Callback::new(move |new_topic: String| {
+        topic.set(new_topic.clone());
+        spawn_local(async move {
+            if let Some(rid) = load_store(STORE_PATH).await {
+                store_set_string(rid, TOPIC_KEY, &new_topic).await;
+            }
+        });
+    });
+
     view! {
         <main class="flex flex-col h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100">
-            <Toolbar object=object players=players theme=theme on_settings=on_settings />
+            <Toolbar object=object players=players theme=theme on_settings=on_settings topic=topic on_topic_change=on_topic_change />
             <div class="flex flex-col flex-1 overflow-hidden p-4">
                 <ChatPanel messages=vec![] />
             </div>
