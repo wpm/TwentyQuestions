@@ -3,6 +3,7 @@ mod chat_panel;
 mod nats;
 mod settings_modal;
 mod store;
+mod tauri_commands;
 mod toolbar;
 
 use app::*;

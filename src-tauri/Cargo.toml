@@ -23,4 +23,7 @@ tauri-plugin-opener = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tauri-plugin-store = "2.4.2"
+free_agent = { git = "https://github.com/wpm/FreeAgent.git", rev = "e8d946cdfcb6a1097893086a2de3a74d4f1fa92b" }
+async-nats = "0.38"
+tokio = { version = "1", features = ["full"] }
 

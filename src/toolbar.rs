@@ -4,6 +4,12 @@ use leptos::task::spawn_local;
 use crate::nats::is_valid_nats_subject;
 use crate::store::{load_store, store_set_string, STORE_PATH};
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum GameState {
+    Idle,
+    Running,
+}
+
 pub const OBJECT_SUGGESTIONS: &[&str] = &["elephant", "wine glass", "smile", "umbrella", "doctor"];
 
 pub const THEME_KEY: &str = "theme";
@@ -86,7 +92,16 @@ pub fn Toolbar(
     on_settings: Callback<()>,
     topic: RwSignal<String>,
     on_topic_change: Callback<String>,
+    game_state: RwSignal<GameState>,
+    on_start: Callback<()>,
+    on_stop: Callback<()>,
 ) -> impl IntoView {
+    let can_start = move || {
+        !object.get().is_empty()
+            && is_valid_nats_subject(&topic.get())
+            && game_state.get() == GameState::Idle
+    };
+    let can_stop = move || game_state.get() == GameState::Running;
     let toggle_theme = move |_: web_sys::MouseEvent| {
         let next = match theme.get() {
             Theme::Light => Theme::Dark,
@@ -171,12 +186,20 @@ pub fn Toolbar(
             <div class="flex-1" />
 
             // Start button
-            <button class="px-3 py-1 text-sm font-medium rounded bg-green-600 hover:bg-green-700 text-white">
+            <button
+                class="px-3 py-1 text-sm font-medium rounded text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled=move || !can_start()
+                on:click=move |_| on_start.run(())
+            >
                 "Start"
             </button>
 
             // Stop button
-            <button class="px-3 py-1 text-sm font-medium rounded bg-red-600 hover:bg-red-700 text-white">
+            <button
+                class="px-3 py-1 text-sm font-medium rounded text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled=move || !can_stop()
+                on:click=move |_| on_stop.run(())
+            >
                 "Stop"
             </button>
 
