@@ -2,7 +2,7 @@ use leptos::prelude::*;
 use leptos::task::spawn_local;
 
 use crate::nats::is_valid_nats_subject;
-use crate::store::{load_store, store_set_string, STORE_PATH};
+use crate::store::set_setting;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum GameState {
@@ -110,9 +110,7 @@ pub fn Toolbar(
         theme.set(next);
         Theme::apply(next);
         spawn_local(async move {
-            if let Some(rid) = load_store(STORE_PATH).await {
-                store_set_string(rid, THEME_KEY, next.as_str()).await;
-            }
+            set_setting(THEME_KEY, next.as_str()).await;
         });
     };
 

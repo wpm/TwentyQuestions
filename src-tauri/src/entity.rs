@@ -1,41 +1,94 @@
-use free_agent::{Control, Entity, Envelope};
-use serde_json::Value;
+use free_agent::{Control, Entity, Envelope, OnIdle};
+use std::sync::Arc;
+use std::time::Duration;
+use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 
-type Msg = Value;
+use crate::language_model::{LanguageModel, ThinkResult};
+use crate::message::Message;
+
+const IDLE_TIMEOUT: Duration = Duration::from_secs(3);
+
+/// Sentinel sender value used by the idle timer to trigger a think cycle
+/// without a real incoming message.
+const IDLE_SENTINEL: &str = "";
 
 pub struct GameSession {
     handles: Vec<JoinHandle<()>>,
 }
 
 impl GameSession {
-    pub async fn start(nats_url: &str, topic: &str, player_count: u32) -> Result<Self, String> {
+    pub async fn start(
+        nats_url: &str,
+        topic: &str,
+        player_count: u32,
+        model: &str,
+        object: &str,
+        api_key: &str,
+    ) -> Result<Self, String> {
         let nats = async_nats::connect(nats_url)
             .await
             .map_err(|e| e.to_string())?;
 
         let mut handles = Vec::new();
 
-        // Host has two entity tasks: one on the topic, one on topic.host
-        for subject in [topic.to_string(), format!("{}.host", topic)] {
-            let entity = Entity::<Msg>::new(subject, None);
-            let entity_nats = nats.clone();
-            handles.push(tokio::spawn(async move {
-                entity.run(entity_nats, |_msg, _nats| async {}).await;
-            }));
-        }
+        // Spawn one entity per participant (host + players), all on the shared topic.
+        let language_models: Vec<Arc<Mutex<LanguageModel>>> = {
+            let mut lms = vec![Arc::new(Mutex::new(LanguageModel::new_host(
+                api_key, model, object, topic,
+            )))];
+            for index in 1..=player_count {
+                lms.push(Arc::new(Mutex::new(LanguageModel::new_player(
+                    api_key, model, index, topic,
+                ))));
+            }
+            lms
+        };
 
-        // Each player subscribes to the topic
-        for _ in 1..=player_count {
-            let entity = Entity::<Msg>::new(topic, None);
+        for language_model in language_models {
+            let subject = topic.to_string();
+
+            // Idle timer: enqueue a sentinel message after IDLE_TIMEOUT of silence.
+            let idle_timer: OnIdle<Message> = (
+                IDLE_TIMEOUT,
+                Box::new(|tx| {
+                    let _ = tx.send(Message::new(IDLE_SENTINEL, ""));
+                }),
+            );
+
+            let entity = Entity::<Message>::new(topic, Some(idle_timer));
             let entity_nats = nats.clone();
+
             handles.push(tokio::spawn(async move {
-                entity.run(entity_nats, |_msg, _nats| async {}).await;
+                entity
+                    .run(entity_nats.clone(), move |msg: Message, nats| {
+                        let language_model = language_model.clone();
+                        let subject = subject.clone();
+                        async move {
+                            let mut lm = language_model.lock().await;
+
+                            // Idle sentinel: think without recording a message.
+                            // Real message: record it (skip if own), then think.
+                            if msg.sender == IDLE_SENTINEL {
+                                tracing::debug!("{}: idle timeout", lm.name());
+                            } else if !lm.record_message(&msg) {
+                                return; // own message — ignore
+                            }
+
+                            match lm.think(&nats, &subject).await {
+                                Ok(ThinkResult::Silent) => {}
+                                Ok(ThinkResult::Left) => {
+                                    tracing::info!("{} left the game", lm.name())
+                                }
+                                Err(e) => tracing::warn!("{} language model error: {e}", lm.name()),
+                            }
+                        }
+                    })
+                    .await;
             }));
         }
 
         publish_control(&nats, topic, Control::Start).await?;
-        publish_control(&nats, &format!("{}.host", topic), Control::Start).await?;
 
         Ok(Self { handles })
     }
@@ -45,7 +98,6 @@ impl GameSession {
             .await
             .map_err(|e| e.to_string())?;
         publish_control(&nats, topic, Control::Stop).await?;
-        publish_control(&nats, &format!("{}.host", topic), Control::Stop).await?;
         for handle in self.handles.drain(..) {
             let _ = handle.await;
         }
@@ -58,7 +110,8 @@ async fn publish_control(
     subject: &str,
     ctrl: Control,
 ) -> Result<(), String> {
-    let payload = serde_json::to_vec(&Envelope::<Msg>::Control(ctrl)).map_err(|e| e.to_string())?;
+    let payload =
+        serde_json::to_vec(&Envelope::<Message>::Control(ctrl)).map_err(|e| e.to_string())?;
     nats.publish(subject.to_string(), payload.into())
         .await
         .map_err(|e| e.to_string())?;

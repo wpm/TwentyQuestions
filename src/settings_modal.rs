@@ -7,7 +7,7 @@ use wasm_bindgen::closure::Closure;
 use wasm_bindgen::JsCast;
 use web_sys::KeyboardEvent;
 
-use crate::store::{load_store, store_set_string, STORE_PATH};
+use crate::store::set_setting;
 
 type EscListener = Rc<RefCell<Option<Closure<dyn Fn(KeyboardEvent)>>>>;
 
@@ -79,10 +79,8 @@ pub fn SettingsModal(
         nats_url.set(new_url.clone());
         model.set(new_model.clone());
         spawn_local(async move {
-            if let Some(rid) = load_store(STORE_PATH).await {
-                store_set_string(rid, NATS_URL_KEY, &new_url).await;
-                store_set_string(rid, MODEL_KEY, &new_model).await;
-            }
+            set_setting(NATS_URL_KEY, &new_url).await;
+            set_setting(MODEL_KEY, &new_model).await;
         });
         show.set(false);
     };

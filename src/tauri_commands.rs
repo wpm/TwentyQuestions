@@ -13,6 +13,8 @@ struct StartGameArgs<'a> {
     nats_url: &'a str,
     topic: &'a str,
     player_count: u32,
+    model: &'a str,
+    object: &'a str,
 }
 
 #[derive(Serialize)]
@@ -26,11 +28,15 @@ pub async fn invoke_start_game(
     nats_url: &str,
     topic: &str,
     player_count: u32,
+    model: &str,
+    object: &str,
 ) -> Result<(), String> {
     let args = serde_wasm_bindgen::to_value(&StartGameArgs {
         nats_url,
         topic,
         player_count,
+        model,
+        object,
     })
     .map_err(|e| e.to_string())?;
     invoke("start_game", args).await;
