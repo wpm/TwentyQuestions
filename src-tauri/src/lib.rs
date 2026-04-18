@@ -9,8 +9,13 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .setup(|app| {
-            let preferences_item =
-                MenuItem::with_id(app, "preferences", "Preferences...", true, Some("CmdOrCtrl+,"))?;
+            let preferences_item = MenuItem::with_id(
+                app,
+                "preferences",
+                "Preferences...",
+                true,
+                Some("CmdOrCtrl+,"),
+            )?;
             let file_menu = Submenu::with_items(app, "File", true, &[&preferences_item])?;
             let menu = Menu::with_items(app, &[&file_menu])?;
             app.set_menu(menu)?;

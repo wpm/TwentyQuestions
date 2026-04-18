@@ -9,6 +9,8 @@ use web_sys::KeyboardEvent;
 
 use crate::store::{load_store, store_set_string, STORE_PATH};
 
+type EscListener = Rc<RefCell<Option<Closure<dyn Fn(KeyboardEvent)>>>>;
+
 pub const NATS_URL_KEY: &str = "nats_url";
 pub const MODEL_KEY: &str = "model";
 
@@ -68,9 +70,8 @@ pub fn SettingsModal(
         }
     });
 
-    let changed = move || {
-        draft_nats_url.get() != nats_url.get() || draft_model.get() != model.get()
-    };
+    let changed =
+        move || draft_nats_url.get() != nats_url.get() || draft_model.get() != model.get();
 
     let apply = move |_: web_sys::MouseEvent| {
         let new_url = draft_nats_url.get_untracked();
@@ -91,8 +92,7 @@ pub fn SettingsModal(
     };
 
     // The Rc<RefCell<...>> holds the closure across effect re-runs without leaking.
-    let esc_listener: Rc<RefCell<Option<Closure<dyn Fn(KeyboardEvent)>>>> =
-        Rc::new(RefCell::new(None));
+    let esc_listener: EscListener = Rc::new(RefCell::new(None));
 
     Effect::new(move || {
         let doc = web_sys::window()
@@ -100,10 +100,7 @@ pub fn SettingsModal(
             .expect("document");
 
         if let Some(cb) = esc_listener.borrow_mut().take() {
-            let _ = doc.remove_event_listener_with_callback(
-                "keydown",
-                cb.as_ref().unchecked_ref(),
-            );
+            let _ = doc.remove_event_listener_with_callback("keydown", cb.as_ref().unchecked_ref());
         }
 
         if show.get() {
@@ -112,10 +109,7 @@ pub fn SettingsModal(
                     show.set(false);
                 }
             }) as Box<dyn Fn(KeyboardEvent)>);
-            let _ = doc.add_event_listener_with_callback(
-                "keydown",
-                cb.as_ref().unchecked_ref(),
-            );
+            let _ = doc.add_event_listener_with_callback("keydown", cb.as_ref().unchecked_ref());
             *esc_listener.borrow_mut() = Some(cb);
         }
     });

@@ -52,9 +52,14 @@ pub fn App() -> impl IntoView {
         show_settings.set(true);
     }) as Box<dyn Fn()>);
     let window = web_sys::window().unwrap();
-    if let Ok(tauri) = js_sys::Reflect::get(&window, &wasm_bindgen::JsValue::from_str("__TAURI__")) {
-        if let Ok(event_mod) = js_sys::Reflect::get(&tauri, &wasm_bindgen::JsValue::from_str("event")) {
-            if let Ok(listen) = js_sys::Reflect::get(&event_mod, &wasm_bindgen::JsValue::from_str("listen")) {
+    if let Ok(tauri) = js_sys::Reflect::get(&window, &wasm_bindgen::JsValue::from_str("__TAURI__"))
+    {
+        if let Ok(event_mod) =
+            js_sys::Reflect::get(&tauri, &wasm_bindgen::JsValue::from_str("event"))
+        {
+            if let Ok(listen) =
+                js_sys::Reflect::get(&event_mod, &wasm_bindgen::JsValue::from_str("listen"))
+            {
                 let listen: js_sys::Function = listen.unchecked_into();
                 let _ = listen.call2(
                     &wasm_bindgen::JsValue::NULL,

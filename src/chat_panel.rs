@@ -62,4 +62,3 @@ pub fn ChatPanel(messages: Vec<ChatMessage>) -> impl IntoView {
         </div>
     }
 }
-

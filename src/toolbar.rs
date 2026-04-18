@@ -50,7 +50,11 @@ impl Theme {
             .and_then(|w| w.match_media("(prefers-color-scheme: dark)").ok().flatten())
             .map(|mq| mq.matches())
             .unwrap_or(false);
-        if prefers_dark { Theme::Dark } else { Theme::Light }
+        if prefers_dark {
+            Theme::Dark
+        } else {
+            Theme::Light
+        }
     }
 }
 
