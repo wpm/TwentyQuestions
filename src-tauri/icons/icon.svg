@@ -1,0 +1,34 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="bubble" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#e8e8f0"/>
+      <stop offset="100%" style="stop-color:#d0d0e8"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#000000" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <!-- Speech bubble body -->
+  <path d="M 100 120
+           Q 100 88 132 88
+           L 380 88
+           Q 412 88 412 120
+           L 412 310
+           Q 412 342 380 342
+           L 220 342
+           L 180 400
+           L 172 342
+           L 132 342
+           Q 100 342 100 310
+           Z"
+        fill="url(#bubble)" filter="url(#shadow)"/>
+
+  <!-- "?" text inside bubble -->
+  <text x="256" y="290"
+        font-family="'Arial Black', 'Helvetica Neue', Arial, sans-serif"
+        font-size="240"
+        font-weight="900"
+        text-anchor="middle"
+        fill="#1a1a2e">?</text>
+</svg>
